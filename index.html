@@ -4,23 +4,25 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>병맛 게임즈</title>
-<meta name="description" content="초저퀄 병맛 게임 3종: 출근하는 감자 DX / 꽥꽥 편의점 24시 / 가만히 감자 챌린지">
+<meta name="description" content="초저퀄 병맛 HTML5 게임 6종 — 감자·오리·대파 유니버스">
 <style>
-:root{--bg:#16162a;--card:#23233f;--ink:#f3f3ff;--sub:#9aa0c8;--y:#ffe14d;--r:#ff6b6b}
+:root{--bg:#16162a;--card:#23233f;--ink:#f3f3ff;--sub:#9aa0c8;--y:#ffe14d;--r:#ff6b6b;--n:#6bc5ff}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:"Comic Sans MS","Malgun Gothic",sans-serif}
-main{max-width:1000px;margin:0 auto;padding:32px 16px 48px}
+main{max-width:1100px;margin:0 auto;padding:32px 16px 48px}
 h1{text-align:center;font-size:clamp(30px,7vw,46px);margin:8px 0 4px;color:var(--y);text-shadow:3px 3px 0 #000}
-.tag{text-align:center;color:var(--r);font-weight:bold;margin:0 0 28px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px}
-a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:3px solid #000;border-radius:14px;padding:22px 18px;box-shadow:6px 6px 0 #000;transition:transform .12s}
+.tag{text-align:center;color:var(--r);font-weight:bold;margin:0 0 8px}
+.badge{display:block;text-align:center;color:var(--n);font-size:13px;margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:3px solid #000;border-radius:14px;padding:20px 16px;box-shadow:6px 6px 0 #000;transition:transform .12s}
 a.card:hover,a.card:focus-visible{transform:translate(-3px,-3px) rotate(-.6deg);outline:none}
-.emo{font-size:60px;line-height:1;text-align:center;margin-bottom:10px}
-.card h2{margin:0 0 6px;font-size:22px;text-align:center}
-.genre{display:block;width:max-content;margin:0 auto 12px;padding:3px 10px;border-radius:99px;background:#000;color:var(--y);font-size:12px;font-weight:bold}
-.card p{margin:0 0 14px;color:var(--sub);font-size:14px;line-height:1.5;text-align:center}
-.go{display:block;text-align:center;background:#2e8b2e;border:3px solid #000;border-radius:8px;padding:10px;font-weight:bold;font-size:17px}
-.go.y{background:#b8860b}.go.p{background:#7a3fb5}
+a.card.new{border-color:#6bc5ff;box-shadow:6px 6px 0 #1a4a6a}
+.emo{font-size:56px;line-height:1;text-align:center;margin-bottom:8px}
+.card h2{margin:0 0 6px;font-size:20px;text-align:center}
+.genre{display:block;width:max-content;margin:0 auto 10px;padding:3px 10px;border-radius:99px;background:#000;color:var(--y);font-size:11px;font-weight:bold}
+.card p{margin:0 0 12px;color:var(--sub);font-size:13px;line-height:1.45;text-align:center}
+.go{display:block;text-align:center;background:#2e8b2e;border:3px solid #000;border-radius:8px;padding:9px;font-weight:bold;font-size:16px}
+.go.y{background:#b8860b}.go.p{background:#7a3fb5}.go.n{background:#1a6aa8}
 footer{text-align:center;color:var(--sub);font-size:12px;margin-top:30px}
 </style>
 </head>
@@ -28,7 +30,29 @@ footer{text-align:center;color:var(--sub);font-size:12px;margin-top:30px}
 <main>
   <h1>병맛 게임즈</h1>
   <p class="tag">초저퀄 · 무료 · 후회는 무료 아님</p>
+  <p class="badge">★ NEW 3종 — 기존보다(주관적) 덜 허접</p>
   <div class="grid">
+    <a class="card new" href="./meet/">
+      <div class="emo">🥔💻</div>
+      <h2>회의실 감자: 카메라 켜세요</h2>
+      <span class="genre">NEW · 화상회의 QTE</span>
+      <p>졸음·채팅·마이크·가짜 종료·CEO 대파. 5챕터 8종 미니 이벤트. 끝나면 다음 회의 5분 뒤.</p>
+      <span class="go n">▶ 입장 (카메라 ON)</span>
+    </a>
+    <a class="card new" href="./toilet/">
+      <div class="emo">🚽🏃</div>
+      <h2>방광 퀘스트: 300m</h2>
+      <span class="genre">NEW · 생존 · 일 vs 방광</span>
+      <p>업무·복도·엘리베이터·줄·🦆 점유 칸. 방광 게이지는 냉정합니다. 클리어해도 휴지는 없습니다.</p>
+      <span class="go n">▶ 화장실 출발</span>
+    </a>
+    <a class="card new" href="./interview/">
+      <div class="emo">📄🥔</div>
+      <h2>면접의 신: 이력서는 감자</h2>
+      <span class="genre">NEW · 15문항 · 병맛 HR</span>
+      <p>대파 CEO·편의점 사장·출근 감자 크로스오버. 정답 고르기. 합격 연봉 약 150원대.</p>
+      <span class="go n">▶ 면접장</span>
+    </a>
     <a class="card" href="./potato/">
       <div class="emo">🥔💼</div>
       <h2>출근하는 감자 DX</h2>
@@ -51,7 +75,7 @@ footer{text-align:center;color:var(--sub);font-size:12px;margin-top:30px}
       <span class="go p">▶ 가만히 있기</span>
     </a>
   </div>
-  <footer>모바일/PC 모두 됩니다 · 소리 켜짐 주의 (삑삑)</footer>
+  <footer>모바일/PC · 외부 에셋 없음 · 소리 켜짐 주의 (삑삑)</footer>
 </main>
 </body>
 </html>

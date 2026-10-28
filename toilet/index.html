@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>방광 퀘스트: 화장실 300m</title>
+<style>
+html,body{margin:0;height:100%;background:#1a1520;overflow:hidden;font-family:"Comic Sans MS","Malgun Gothic",sans-serif;touch-action:none;user-select:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center}
+canvas{background:#e8dcc8;max-width:100%;max-height:100%;aspect-ratio:3/4;cursor:pointer;touch-action:none}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="360" height="480"></canvas></div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),W=360,H=480;
+const PHASES=[
+ {n:'자리',sub:'일은 해야 하고 화장실도 가야 함',len:420},
+ {n:'복도',sub:'부장님과 눈 마주치면 끝',len:480},
+ {n:'엘리베이터',sub:'B2만 누르세요. 나머지는 함정',len:360},
+ {n:'대기열',sub:'줄 뛰어넘기 = HR',len:400},
+ {n:'칸',sub:'🦆가 점유 중',len:380}
+];
+const FAIL=['방광 한계 · 책상에서 굴욕','부장님과 눈 마주침 · 연봉 -30%','엘리베이터 47층 · 지각','줄 새치기 · 전사 메일','오리: "꽥" · 문 안 열림','일 안 해서 경고 3회'];
+let st='title',phase=0,pt=0,pee=12,prod=70,shake=0,flash=0,t=0,clears=0,fails=0,msg='',px=40,py=400,boss=0,bossX=360,held=0,knock=0,knockNeed=4,elev=0,endT=0;
+try{clears=+localStorage.toiletClear||0;fails=+localStorage.toiletFails||0}catch(e){}
+let ac;function beep(f,d=.1,type='square',v=.07){try{ac=ac||new AudioContext();const o=ac.createOscillator(),u=ac.createGain();o.type=type;o.frequency.value=f;u.gain.setValueAtTime(v,ac.currentTime);u.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(u);u.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+const pick=a=>a[Math.random()*a.length|0],inR=(x,y,r)=>x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3];
+function txt(s,x,y,sz,col,out){g.font='bold '+sz+'px "Comic Sans MS","Malgun Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';if(out){g.strokeStyle=out;g.lineWidth=4;g.lineJoin='round';g.strokeText(s,x,y)}g.fillStyle=col;g.fillText(s,x,y)}
+function emo(s,x,y,sz){g.font=sz+'px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(s,x,y)}
+function btn(r,l,col){g.fillStyle=col;g.fillRect(r[0],r[1],r[2],r[3]);g.strokeStyle='#000';g.lineWidth=3;g.strokeRect(r[0],r[1],r[2],r[3]);txt(l,r[0]+r[2]/2,r[1]+r[3]/2,Math.min(17,r[3]*.45),'#fff')}
+
+function startRun(){phase=0;pt=0;pee=15;prod=75;px=50;py=400;boss=0;bossX=380;held=0;knock=0;elev=0;st='play';t=0;beep(400,.12)}
+function die(why){st='dead';t=0;fails++;try{localStorage.toiletFails=fails}catch(e){};msg=why||pick(FAIL);shake=22;flash=10;beep(90,.45,'sawtooth')}
+function nextPhase(){phase++;pt=0;if(phase>=5){st='ending';endT=0;clears++;try{localStorage.toiletClear=clears}catch(e){};beep(880,.2)}}
+
+function tap(x,y){
+  if(st==='title'){startRun();return}
+  if(st==='dead'&&t>40&&inR(x,y,[55,370,250,46])){startRun();return}
+  if(st==='ending'&&endT>1000){st='title';t=0;return}
+  if(st!=='play')return;
+  if(phase===0){
+    if(inR(x,y,[200,350,140,50])){held=30;prod=Math.min(100,prod+8);pee=Math.max(0,pee-4);beep(600,.05)}
+    else if(inR(x,y,[20,350,160,50])){pee=Math.min(100,pee+6);prod=Math.max(0,prod-5);beep(200,.08)}
+  }
+  if(phase===1&&boss===0){px=Math.min(300,x);py=Math.min(430,Math.max(120,y))}
+  if(phase===2){
+    const floors=[['B2',1],['47',0],['∞',0],['404',0],['CEO',0],['🥔',0]];
+    const pos=[[30,280,95,44],[130,280,95,44],[230,280,95,44],[30,340,95,44],[130,340,95,44],[230,340,95,44]];
+    for(let i=0;i<floors.length;i++)if(inR(x,y,pos[i])){if(floors[i][1]){nextPhase();beep(1000,.15)}else die('엘리베이터가 잘못된 차원으로')}
+  }
+  if(phase===3&&inR(x,y,[220,320,120,40]))die('줄 새치기 · CCTV에 감자');
+  if(phase===4&&inR(x,y,[130,300,100,80])){knock++;beep(300+knock*100,.08);if(knock>=knockNeed){nextPhase();beep(1200,.2)}}
+}
+function xy(e){const r=c.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
+c.addEventListener('pointerdown',e=>{e.preventDefault();tap(...xy(e))});
+
+function update(){
+  t++;if(shake>0)shake--;if(flash>0)flash--;if(held>0)held--;
+  if(st!=='play'){if(st==='ending')endT++;return}
+  pt++;pee=Math.min(100,pee+.055+phase*.012);
+  if(pee>=100){die('방광 한계');return}
+  const P=PHASES[phase];
+  if(phase===0){
+    prod=Math.max(0,prod-.08);if(held)prod=Math.min(100,prod+.15);
+    if(prod<=0)die('일 안 해서 경고 3회');
+    if(pt>=P.len)nextPhase();
+  }
+  if(phase===1){
+    if(boss===0&&pt%120===0&&Math.random()<.55){boss=90;bossX=360}
+    if(boss>0){boss--;bossX-=4;if(bossX<120&&Math.abs(px-bossX)<50)die('부장님과 눈 마주침');if(boss<=0)boss=0}
+    if(px>280&&pt>=P.len*.7)nextPhase();
+  }
+  if(phase===2&&pt>=P.len)die('B2를 못 찾음');
+  if(phase===3){
+    if(inR(px,py,[220,320,120,40])){} 
+    if(pt>=P.len)nextPhase();
+  }
+  if(phase===4&&pt>=P.len&&knock<knockNeed)die('오리가 문 안 열어줌');
+}
+
+function draw(){
+  g.save();if(shake>0)g.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  g.fillStyle=flash?'#faa':'#e8dcc8';g.fillRect(-10,-10,W+20,H+20);
+  g.fillStyle='rgba(0,0,0,.12)';g.fillRect(0,0,W,44);
+  txt('PHASE '+(phase+1)+'/5 · '+PHASES[phase].n,180,14,13,'#322','#fff');
+  g.fillStyle='rgba(0,0,0,.2)';g.fillRect(20,28,320,10);g.fillStyle='#fa4';g.fillRect(20,28,320*pee/100,10);txt('방광',180,22,9,'#633');
+
+  if(st==='title'){
+    g.fillStyle='#1a1520';g.fillRect(0,0,W,H);
+    emo('🚽',180,80,64);emo('🥔',180,145,56);
+    txt('방광 퀘스트',180,195,30,'#ffe14d','#000');txt('화장실까지 300m',180,228,20,'#ff6b6b','#000');
+    txt('5 구간 · 일 vs 방광 · 부장 · 오리',180,270,13,'#ccc');
+    txt(clears?'통과 '+clears+'회 · 실패 '+fails:'기록 없음',180,300,12,'#889');
+    if(t%60<40)txt('▶ 클릭해서 출발 ◀',180,420,18,'#7CFC00');
+    return g.restore();
+  }
+  if(st==='play'){
+    txt(PHASES[phase].sub,180,58,12,'#544');
+    if(phase===0){
+      g.fillStyle='#c9b896';g.fillRect(20,80,320,240);emo('💻',180,180,80);
+      g.fillStyle='rgba(0,0,0,.15)';g.fillRect(30,100,140,10);g.fillStyle='#3a9';g.fillRect(30,100,140*prod/100,10);txt('업무 '+Math.floor(prod)+'%',100,94,10,'#fff');
+      btn([20,350,160,50],'☕ 화장실(몰래)','#b85');btn([200,350,140,50],'⌨️ 일하기','#2a6');
+      txt(held?'집중 중...':'둘 다 필요함',180,320,13,'#633');
+    }
+    if(phase===1){
+      g.fillStyle='#d4c4a8';g.fillRect(0,90,W,300);
+      emo('🚪',300,250,50);emo('🥔',px,py,42);
+      if(boss>0){emo('👔',bossX,250,50);txt('멈춰!',180,120,22,'#d00','#fff')}
+      else txt('문 쪽으로 드래그(탭)',180,120,14,'#433');
+    }
+    if(phase===2){
+      emo('🛗',180,180,90);txt('목적지: B2 (지하 화장실)',180,120,14,'#322');
+      const labels=['B2','47','∞','404','CEO','🥔'];
+      const pos=[[30,280,95,44],[130,280,95,44],[230,280,95,44],[30,340,95,44],[130,340,95,44],[230,340,95,44]];
+      for(let i=0;i<6;i++)btn(pos[i],labels[i],i===0?'#2a8':'#888');
+    }
+    if(phase===3){
+      emo('🧑‍🤝‍🧑',180,200,70);emo('🥔',80,320,40);txt('줄 서는 중... '+Math.floor((PHASES[3].len-pt)/60)+'초',180,140,16,'#322');
+      btn([220,320,120,40],'줄 새치기','#c33');txt('(누르면 즉시 퇴사)',220,365,10,'#a00');
+    }
+    if(phase===4){
+      g.fillStyle='#bbb';g.fillRect(60,120,240,280);emo('🦆',180,220,70);txt('꽥... 점유 중',180,280,16,'#223');
+      btn([130,300,100,80],'노크','#69a');txt(knock+'/'+knockNeed,180,400,18,'#322');
+    }
+  }
+  if(st==='dead'){
+    g.fillStyle='rgba(50,0,0,.88)';g.fillRect(0,0,W,H);
+    txt('실패',180,130,38,'#f88','#000');txt(msg,180,185,15,'#fff');
+    btn([55,370,250,46],'▶ 다시 300m','#2e8');
+  }
+  if(st==='ending'){
+    g.fillStyle='#102820';g.fillRect(0,0,W,H);
+    const lines=['드디어...','칸에 들어갔습니다.','휴지가 없습니다.','(편의점에서 사 오세요)','— THE END —'];
+    const n=Math.min(lines.length,Math.floor(endT/70));
+    for(let i=0;i<n;i++)txt(lines[i],180,100+i*42,i===0?26:16,'#dfe');
+    if(endT>1000&&t%60<40)txt('▶ 처음으로 ◀',180,430,14,'#7CFC00');
+  }
+  g.restore();
+}
+let last=performance.now(),acc=0;(function loop(now){acc+=Math.min(100,now-last);last=now;while(acc>=1000/60){update();acc-=1000/60}draw();requestAnimationFrame(loop)})(last);
+</script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>회의실 감자: 카메라 켜세요</title>
+<style>
+html,body{margin:0;height:100%;background:#0d1117;overflow:hidden;font-family:"Comic Sans MS","Malgun Gothic",sans-serif;touch-action:manipulation;user-select:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center}
+canvas{background:#1a2332;max-width:100%;max-height:100%;aspect-ratio:3/4;cursor:pointer;touch-action:none}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="c" width="360" height="480"></canvas></div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),W=360,H=480;
+const CH=[
+ {n:'오리엔테이션',dur:55,sub:'"오늘은 가볍게 30분만" (거짓말)',spd:1},
+ {n:'스프린트 리뷰',dur:65,sub:'데모는 안 되지만 설명은 40분',spd:1.15},
+ {n:'1on1',dur:70,sub:'상사: "솔직히 말해봐" (함정)',spd:1.25},
+ {n:'전사 타운홀',dur:75,sub:'CEO 대파 등장 · 카메라 필수',spd:1.35},
+ {n:'야간 긴급회의',dur:80,sub:'출근하는 감자 DX 유저만 초대됨',spd:1.5}
+];
+const CHAT_OK=['네 알겠습니다','👍','ㅋㅋㅋ (적절)','감사합니다 팀장님','화면 공유 확인했습니다'];
+const CHAT_BAD=['그건 제 업무 아닌데요?','회의 끝났나요?','저 감자인데요','ZZZ...','대파 맛있어요'];
+const REACTS=[{e:'👍',ok:1},{e:'👏',ok:1},{e:'😴',ok:0},{e:'🥔',ok:0},{e:'🔥',ok:1},{e:'💩',ok:0}];
+const FAIL=['졸음 들통 · 슬랙에 스크린샷 유출','"카메라 왜 꺼?" · 인사팀 호출','채팅 실수 · 전사 공지됨','발표 지목 · 자료 없음','대파 CEO: "너 퇴사각"','가짜 종료에 속아 퇴장 · 결근 처리'];
+const WIN=['— 4시간 17분 후 —','회의는 끝났습니다.','다음 회의는 5분 뒤입니다.','(캘린더에 3개 더 추가됨)','감자는 카메라를 끄지 못했다.','오리 편의점 알바는 그만두지 못했다.','가만히 감자 챌린지는','회의 중에 실패했다.'];
+let st='title',t=0,ch=0,ct=0,sleep=8,sus=0,shake=0,flash=0,ev=null,evT=0,score=0,clears=0,msg='',msgT=0,endT=0,fails=0;
+try{clears=+localStorage.meetClear||0;fails=+localStorage.meetFails||0}catch(e){}
+let ac;function beep(f,d=.1,type='square',v=.07){try{ac=ac||new AudioContext();const o=ac.createOscillator(),u=ac.createGain();o.type=type;o.frequency.value=f;u.gain.setValueAtTime(v,ac.currentTime);u.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(u);u.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0];
+const inR=(x,y,r)=>x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3];
+function txt(s,x,y,sz,col,out){g.font='bold '+sz+'px "Comic Sans MS","Malgun Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';if(out){g.strokeStyle=out;g.lineWidth=4;g.lineJoin='round';g.strokeText(s,x,y)}g.fillStyle=col;g.fillText(s,x,y)}
+function emo(s,x,y,sz){g.font=sz+'px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(s,x,y)}
+function btn(r,l,col){g.fillStyle=col;g.fillRect(r[0],r[1],r[2],r[3]);g.strokeStyle='#000';g.lineWidth=3;g.strokeRect(r[0],r[1],r[2],r[3]);txt(l,r[0]+r[2]/2,r[1]+r[3]/2,Math.min(16,r[3]*.42),'#fff')}
+
+const EV=[
+{id:'nod',make(s){return{title:'고개 끄덕!',dur:Math.floor(200/s),need:'tap',zone:[120,340,120,50],hits:0,needN:3,
+  draw(){emo('🧑‍💼',180,200,64);txt(this.hits+'/'+this.needN,180,280,20,'#fff','#000');btn(this.zone,'끄덕!','#2a6')},
+  tap(x,y){if(inR(x,y,this.zone)){this.hits++;beep(440+this.hits*80,.06);if(this.hits>=this.needN)this.res=1}}}}},
+{id:'chat',make(s){const ok=pick(CHAT_OK);const opts=[0,1,2].map(i=>i?pick(CHAT_BAD):ok);if(!opts.includes(ok))opts[0]=ok;
+  const rs=[[20,300,320,44],[20,350,320,44],[20,400,320,44]].slice(0,opts.length);
+  return {title:'채팅으로 반응!',dur:Math.floor(320/s),opts,rs,ok,
+  draw(){for(let i=0;i<opts.length;i++)btn(rs[i],opts[i].slice(0,18),'#36a')},
+  tap(x,y){for(let i=0;i<opts.length;i++)if(inR(x,y,rs[i]))this.res=opts[i]===ok?1:-1}}}},
+{id:'mute',make(s){return{title:'마이크 끄기! (끄기만)',dur:Math.floor(280/s),trap:false,
+  draw(){emo('🔴',180,180,40);txt('실수로 "켜기" 누르면 전사 방송',180,230,13,'#faa');btn([70,320,100,46],'끄기','#a22');btn([190,320,100,46],'켜기','#666')},
+  tap(x,y){if(inR(x,y,[190,320,100,46]))this.res=-1;else if(inR(x,y,[70,320,100,46]))this.res=1}}}},
+{id:'cam',make(s){return{title:'카메라 켜라는데?',dur:Math.floor(300/s),phase:0,
+  upd(){if(this.t===Math.floor(this.dur*.55))this.phase=1},
+  draw(){emo(this.phase?'🌿':'🧔',180,190,58);txt(this.phase?'CEO: "얼굴 보여줘"':'HR: "선택은 없습니다"',180,250,14,'#fff');
+    if(this.phase)btn([80,320,200,46],'카메라 켜기','#c33');else txt('기다리면 알아서 넘어감',180,320,13,'#8af')},
+  tap(){if(!this.phase)this.res=-1;else this.res=1}}}},
+{id:'react',make(s){const rs=pick(REACTS);const others=REACTS.filter(r=>r!==rs).slice(0,2);const all=[rs,...others].sort(()=>Math.random()-.5);
+  const pos=[[40,310,90,56],[135,310,90,56],[230,310,90,56]];
+  return {title:'리액션!',dur:Math.floor(260/s),all,pos,target:rs,
+  draw(){txt('지금 👏 치라고 함',180,250,14,'#ff9');for(let i=0;i<all.length;i++){g.fillStyle=all[i].ok?'#2a5':'#533';g.fillRect(pos[i][0],pos[i][1],pos[i][2],pos[i][3]);g.strokeRect(pos[i][0],pos[i][1],pos[i][2],pos[i][3]);emo(all[i].e,pos[i][0]+45,pos[i][1]+28,32)}},
+  tap(x,y){for(let i=0;i<all.length;i++)if(inR(x,y,pos[i]))this.res=all[i].ok?1:-1}}}},
+{id:'present',make(s){return{title:'갑자기 발표!',dur:Math.floor(340/s),slides:0,
+  draw(){emo('📊',180,200,70);txt('슬라이드 '+this.slides+'/4',180,270,18,'#fff');btn([60,320,110,46],'◀','#555');btn([190,320,110,46],'다음 ▶','#2e8')},
+  tap(x,y){if(inR(x,y,[190,320,110,46])){this.slides++;beep(520,.05);if(this.slides>=4)this.res=1}else if(inR(x,y,[60,320,110,46]))this.res=-1}}}},
+{id:'still',make(s){return{title:'움직이지 마!',dur:Math.floor(180/s),timeoutWin:true,
+  draw(){emo('👀',180,230,90);txt('지금 클릭하면 칭찬',180,360,16,'#ff0','#000')},
+  tap(){this.res=-1}}}},
+{id:'fakeend',make(s){return{title:'회의 종료!',dur:Math.floor(240/s),timeoutWin:true,
+  draw(){txt('🎉 END 🎉',180,200,32,'#7f7','#000');txt('나가기 버튼 누르면 보너스',180,260,14,'#fff');btn([80,320,200,46],'나가기','#2e8')},
+  tap(x,y){if(inR(x,y,[80,320,200,46]))this.res=-1}}}}
+];
+
+function nextEv(){
+  const spd=CH[ch].spd;const pool=EV.filter(e=>ch<3?e.id!=='cam'||Math.random()<.3:true);
+  ev=pool[Math.random()*pool.length|0].make(spd);ev.t=0;ev.res=0;evT=0;
+}
+function startRun(){ch=0;ct=0;sleep=10;sus=0;score=0;st='intro';t=0;beep(300,.15)}
+function fail(why){st='dead';t=0;fails++;try{localStorage.meetFails=fails}catch(e){};shake=20;flash=8;msg=why||pick(FAIL);beep(100,.4,'sawtooth')}
+function tap(x,y){
+  if(st==='title'){startRun();return}
+  if(st==='dead'&&t>35&&inR(x,y,[50,360,260,46])){startRun();return}
+  if(st==='ending'&&endT>1200){st='title';t=0;return}
+  if(st==='play'&&ev&&!ev.res&&ev.tap)ev.tap(x,y);
+  if(st==='chclear'&&t>80){if(ch>=4){st='ending';endT=0;clears++;try{localStorage.meetClear=clears}catch(e){}}else{ch++;st='intro';t=0}}
+}
+function xy(e){const r=c.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
+c.addEventListener('pointerdown',e=>{e.preventDefault();tap(...xy(e))});
+
+function update(){
+  t++;if(shake>0)shake--;if(flash>0)flash--;if(msgT>0)msgT--;
+  const C=CH[ch];
+  if(st==='intro'){if(t>100){st='play';nextEv()}}
+  else if(st==='play'){
+    ct++;sleep=Math.min(100,sleep+.045*C.spd);sus=Math.max(0,sus-.02);
+    if(sleep>92&&!ev.res&&ev.id!=='still'){fail('졸음 · 코골이가 마이크에 잡힘');return}
+    if(ev.upd)ev.upd();ev.t++;
+    if(!ev.res&&ev.t>=ev.dur)ev.res=ev.timeoutWin?1:-1;
+    if(ev.res){evT++;if(evT>40){
+      if(ev.res<0){fail();return}
+      score++;sleep=Math.max(0,sleep-12);sus+=ev.id==='cam'?5:0;beep(880,.08);
+      if(ct>=C.dur*60){st='chclear';t=0;return}
+      nextEv();
+    }}
+    if(ct>=C.dur*60&&st==='play'){st='chclear';t=0}
+  }
+  else if(st==='chclear'){}
+  else if(st==='ending')endT++;
+}
+function drawZoom(){
+  g.fillStyle='#20262e';g.fillRect(16,56,328,200);g.strokeStyle='#000';g.lineWidth=2;g.strokeRect(16,56,328,200);
+  g.fillStyle='#2d3848';g.fillRect(24,64,150,120);emo('🥔',99,124,52);txt('감자(나)',99,168,11,'#fff');
+  g.fillStyle='#2d3848';g.fillRect(186,64,150,120);emo(ch>=3?'🌿':'🧑‍💼',261,124,48);txt(ch>=3?'CEO 대파':'팀장',261,168,11,'#fff');
+  g.fillStyle='#111';g.fillRect(16,248,328,36);txt('주제: '+CH[ch].n+' · '+CH[ch].sub.slice(0,22),180,266,11,'#9ab');
+}
+function draw(){
+  g.save();if(shake>0)g.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
+  g.fillStyle=flash?'#522':'#1a2332';g.fillRect(-10,-10,W+20,H+20);
+  if(st==='title'){
+    g.fillStyle='#0d1117';g.fillRect(0,0,W,H);
+    emo('🥔',180,70,72);emo('💻',180,130,40);
+    txt('회의실 감자',180,175,32,'#ffe14d','#000');txt('카메라 켜세요',180,210,22,'#ff6b6b','#000');
+    txt('졸음 · 채팅 · 마이크 · 가짜 종료',180,250,13,'#9cf');
+    txt('5 챕터 · 약 4분 · 클릭/QTE',180,272,13,'#9cf');
+    txt(clears?'생존 '+clears+'회 · 누적 실패 '+fails:'아직 생존 기록 없음',180,300,12,'#778');
+    txt('출근하는 감자 · 꽥꽥 편의점 · 가만히 감자와 같은 우주',180,330,10,'#556');
+    if(t%60<40)txt('▶ 클릭해서 입장 (카메라 ON) ◀',180,420,17,'#7CFC00');
+  }
+  if(st==='intro'||st==='play'||st==='chclear'){
+    drawZoom();
+    g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,0,W,52);
+    txt('CH '+(ch+1)+'/5 '+CH[ch].n,180,18,14,'#fff','#000');
+    g.fillStyle='rgba(0,0,0,.25)';g.fillRect(20,290,140,10);g.fillStyle='#44f';g.fillRect(20,290,140*sleep/100,10);txt('졸음',90,282,10,'#8af');
+    g.fillStyle='rgba(0,0,0,.25)';g.fillRect(200,290,140,10);g.fillStyle='#f84';g.fillRect(200,290,140*sus/100,10);txt('의심',270,282,10,'#faa');
+    if(st==='play'&&ev){
+      g.fillStyle='rgba(0,0,0,.5)';g.fillRect(0,400,W,80);
+      txt(ev.title,180,418,Math.min(20,ev.title.length>10?16:20),'#fff','#000');
+      g.fillStyle='#e33';g.fillRect(20,438,320,6);g.fillStyle='#3a3';g.fillRect(20,438,320*(1-ev.t/ev.dur),6);
+      ev.draw();
+    }
+    if(st==='intro'){g.fillStyle='rgba(0,0,0,.6)';g.fillRect(0,170,W,120);txt('다음: '+CH[ch].n,180,210,24,'#ffe14d','#000');txt(CH[ch].sub,180,250,13,'#fff')}
+    if(st==='chclear'){g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,150,W,180);txt('CH '+(ch+1)+' SURVIVE',180,200,28,'#7CFC00','#000');txt('다음 회의가 3초 뒤에 시작됩니다',180,240,14,'#fff');if(t>80&&t%60<40)txt('▶ 계속 ◀',180,290,16,'#7CFC00')}
+  }
+  if(st==='dead'){
+    g.fillStyle='rgba(0,0,0,.85)';g.fillRect(0,0,W,H);
+    txt('퇴출',180,120,40,'#f55','#000');txt(msg,180,170,15,'#fff');txt('CH '+(ch+1)+' · 점수 '+score,180,210,14,'#ff9');
+    btn([50,360,260,46],'▶ 다시 입장','#2e8');
+  }
+  if(st==='ending'){
+    g.fillStyle='#000';g.fillRect(0,0,W,H);
+    const n=Math.min(WIN.length,Math.floor(endT/90));
+    for(let i=0;i<n;i++)txt(WIN[i],180,80+i*38,i===0?20:15,i===4?'#ff9':'#ddd');
+    if(endT>900&&t%60<40)txt('▶ 처음으로 ◀',180,440,14,'#7CFC00');
+  }
+  g.restore();
+}
+let last=performance.now(),acc=0;(function loop(now){acc+=Math.min(100,now-last);last=now;while(acc>=1000/60){update();acc-=1000/60}draw();requestAnimationFrame(loop)})(last);
+</script>
+</body>
+</html>
