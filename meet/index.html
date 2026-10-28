@@ -3,155 +3,107 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>회의실 감자: 카메라 켜세요</title>
+<title>회의 탈출: 점프맵</title>
 <style>
-html,body{margin:0;height:100%;background:#0d1117;overflow:hidden;font-family:"Comic Sans MS","Malgun Gothic",sans-serif;touch-action:manipulation;user-select:none}
-#wrap{height:100%;display:flex;align-items:center;justify-content:center}
-canvas{background:#1a2332;max-width:100%;max-height:100%;aspect-ratio:3/4;cursor:pointer;touch-action:none}
+html,body{margin:0;height:100%;background:#0d1117;overflow:hidden;font-family:"Comic Sans MS","Malgun Gothic",sans-serif;touch-action:none;user-select:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+canvas{background:#2a3544;max-width:100%;max-height:100%;aspect-ratio:3/4;image-rendering:pixelated}
+#touch{display:none;position:absolute;bottom:8%;left:50%;transform:translateX(-50%);width:min(360px,96vw);gap:8px;grid-template-columns:1fr 1fr 1fr}
+#touch button{font:bold 16px inherit;padding:14px 0;border:3px solid #000;border-radius:10px;background:#445;color:#fff}
+#touch .j{background:#2a8}
+@media(pointer:coarse){#touch{display:grid}}
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="c" width="360" height="480"></canvas></div>
+<div id="wrap">
+<canvas id="c" width="360" height="480"></canvas>
+<div id="touch"><button data-k="L">◀</button><button data-k="J" class="j">점프</button><button data-k="R">▶</button></div>
+</div>
 <script>
 const c=document.getElementById('c'),g=c.getContext('2d'),W=360,H=480;
-const CH=[
- {n:'오리엔테이션',dur:55,sub:'"오늘은 가볍게 30분만" (거짓말)',spd:1},
- {n:'스프린트 리뷰',dur:65,sub:'데모는 안 되지만 설명은 40분',spd:1.15},
- {n:'1on1',dur:70,sub:'상사: "솔직히 말해봐" (함정)',spd:1.25},
- {n:'전사 타운홀',dur:75,sub:'CEO 대파 등장 · 카메라 필수',spd:1.35},
- {n:'야간 긴급회의',dur:80,sub:'출근하는 감자 DX 유저만 초대됨',spd:1.5}
+const LV=[
+ {n:'회의실 A',w:920,door:860,spawn:[40,380],pl:[[0,420,920,60],[120,340,140,16],[320,280,120,16],[500,320,100,16],[640,240,130,16],[780,300,90,16]],hz:[[280,418,40,8,'☕'],[520,418,40,8,'☕']],pat:[{x:400,y:404,w:60,v:1.2,e:'😴'}]},
+ {n:'프로젝터룸',w:1100,door:1040,spawn:[40,380],pl:[[0,420,1100,60],[80,350,90,16],[220,290,110,16],[380,330,80,16],[480,250,140,16],[660,300,100,16],[820,220,120,16],[950,340,100,16]],hz:[[350,418,50,8,'📽️'],[700,418,50,8,'📽️']],pat:[{x:300,y:404,w:80,v:1.5,e:'🧑‍💼'},{x:600,y:274,w:70,v:-1.1,e:'😴'}]},
+ {n:'CEO관',w:1280,door:1210,spawn:[40,380],pl:[[0,420,1280,60],[100,360,100,16],[250,300,90,16],[400,350,70,16],[520,270,120,16],[680,220,100,16],[820,280,110,16],[980,200,130,16],[1120,320,100,16]],hz:[[450,418,60,8,'☕'],[850,418,60,8,'☕'],[1050,198,40,8,'🌿']],pat:[{x:520,y:254,w:90,v:1.8,e:'🌿'},{x:900,y:404,w:100,v:-1.4,e:'👔'}]}
 ];
-const CHAT_OK=['네 알겠습니다','👍','ㅋㅋㅋ (적절)','감사합니다 팀장님','화면 공유 확인했습니다'];
-const CHAT_BAD=['그건 제 업무 아닌데요?','회의 끝났나요?','저 감자인데요','ZZZ...','대파 맛있어요'];
-const REACTS=[{e:'👍',ok:1},{e:'👏',ok:1},{e:'😴',ok:0},{e:'🥔',ok:0},{e:'🔥',ok:1},{e:'💩',ok:0}];
-const FAIL=['졸음 들통 · 슬랙에 스크린샷 유출','"카메라 왜 꺼?" · 인사팀 호출','채팅 실수 · 전사 공지됨','발표 지목 · 자료 없음','대파 CEO: "너 퇴사각"','가짜 종료에 속아 퇴장 · 결근 처리'];
-const WIN=['— 4시간 17분 후 —','회의는 끝났습니다.','다음 회의는 5분 뒤입니다.','(캘린더에 3개 더 추가됨)','감자는 카메라를 끄지 못했다.','오리 편의점 알바는 그만두지 못했다.','가만히 감자 챌린지는','회의 중에 실패했다.'];
-let st='title',t=0,ch=0,ct=0,sleep=8,sus=0,shake=0,flash=0,ev=null,evT=0,score=0,clears=0,msg='',msgT=0,endT=0,fails=0;
-try{clears=+localStorage.meetClear||0;fails=+localStorage.meetFails||0}catch(e){}
-let ac;function beep(f,d=.1,type='square',v=.07){try{ac=ac||new AudioContext();const o=ac.createOscillator(),u=ac.createGain();o.type=type;o.frequency.value=f;u.gain.setValueAtTime(v,ac.currentTime);u.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(u);u.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
-const rnd=(a,b)=>a+Math.random()*(b-a),pick=a=>a[Math.random()*a.length|0];
-const inR=(x,y,r)=>x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3];
-function txt(s,x,y,sz,col,out){g.font='bold '+sz+'px "Comic Sans MS","Malgun Gothic",sans-serif';g.textAlign='center';g.textBaseline='middle';if(out){g.strokeStyle=out;g.lineWidth=4;g.lineJoin='round';g.strokeText(s,x,y)}g.fillStyle=col;g.fillText(s,x,y)}
+let st='title',lv=0,cam=0,px=40,py=380,vx=0,vy=0,onG=0,jump=0,hp=3,t=0,shake=0,clears=0,bestT=0,runT=0,endT=0,msg='',msgT=0;
+const SP=2.6,JF=-8.8,GR=.42,MW=26,MH=28;
+try{clears=+localStorage.meetClear2||0;bestT=+localStorage.meetBestT||0}catch(e){}
+let keys={L:0,R:0,J:0,jp:0},ac;
+function beep(f,d=.08,type='square',v=.07){try{ac=ac||new AudioContext();const o=ac.createOscillator(),u=ac.createGain();o.type=type;o.frequency.value=f;u.gain.setValueAtTime(v,ac.currentTime);u.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(u);u.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function txt(s,x,y,sz,col,out){g.font='bold '+sz+'px "Comic Sans MS",sans-serif';g.textAlign='center';g.textBaseline='middle';if(out){g.strokeStyle=out;g.lineWidth=4;g.strokeText(s,x,y)}g.fillStyle=col;g.fillText(s,x,y)}
 function emo(s,x,y,sz){g.font=sz+'px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(s,x,y)}
-function btn(r,l,col){g.fillStyle=col;g.fillRect(r[0],r[1],r[2],r[3]);g.strokeStyle='#000';g.lineWidth=3;g.strokeRect(r[0],r[1],r[2],r[3]);txt(l,r[0]+r[2]/2,r[1]+r[3]/2,Math.min(16,r[3]*.42),'#fff')}
-
-const EV=[
-{id:'nod',make(s){return{title:'고개 끄덕!',dur:Math.floor(200/s),need:'tap',zone:[120,340,120,50],hits:0,needN:3,
-  draw(){emo('🧑‍💼',180,200,64);txt(this.hits+'/'+this.needN,180,280,20,'#fff','#000');btn(this.zone,'끄덕!','#2a6')},
-  tap(x,y){if(inR(x,y,this.zone)){this.hits++;beep(440+this.hits*80,.06);if(this.hits>=this.needN)this.res=1}}}}},
-{id:'chat',make(s){const ok=pick(CHAT_OK);const opts=[0,1,2].map(i=>i?pick(CHAT_BAD):ok);if(!opts.includes(ok))opts[0]=ok;
-  const rs=[[20,300,320,44],[20,350,320,44],[20,400,320,44]].slice(0,opts.length);
-  return {title:'채팅으로 반응!',dur:Math.floor(320/s),opts,rs,ok,
-  draw(){for(let i=0;i<opts.length;i++)btn(rs[i],opts[i].slice(0,18),'#36a')},
-  tap(x,y){for(let i=0;i<opts.length;i++)if(inR(x,y,rs[i]))this.res=opts[i]===ok?1:-1}}}},
-{id:'mute',make(s){return{title:'마이크 끄기! (끄기만)',dur:Math.floor(280/s),trap:false,
-  draw(){emo('🔴',180,180,40);txt('실수로 "켜기" 누르면 전사 방송',180,230,13,'#faa');btn([70,320,100,46],'끄기','#a22');btn([190,320,100,46],'켜기','#666')},
-  tap(x,y){if(inR(x,y,[190,320,100,46]))this.res=-1;else if(inR(x,y,[70,320,100,46]))this.res=1}}}},
-{id:'cam',make(s){return{title:'카메라 켜라는데?',dur:Math.floor(300/s),phase:0,
-  upd(){if(this.t===Math.floor(this.dur*.55))this.phase=1},
-  draw(){emo(this.phase?'🌿':'🧔',180,190,58);txt(this.phase?'CEO: "얼굴 보여줘"':'HR: "선택은 없습니다"',180,250,14,'#fff');
-    if(this.phase)btn([80,320,200,46],'카메라 켜기','#c33');else txt('기다리면 알아서 넘어감',180,320,13,'#8af')},
-  tap(){if(!this.phase)this.res=-1;else this.res=1}}}},
-{id:'react',make(s){const rs=pick(REACTS);const others=REACTS.filter(r=>r!==rs).slice(0,2);const all=[rs,...others].sort(()=>Math.random()-.5);
-  const pos=[[40,310,90,56],[135,310,90,56],[230,310,90,56]];
-  return {title:'리액션!',dur:Math.floor(260/s),all,pos,target:rs,
-  draw(){txt('지금 👏 치라고 함',180,250,14,'#ff9');for(let i=0;i<all.length;i++){g.fillStyle=all[i].ok?'#2a5':'#533';g.fillRect(pos[i][0],pos[i][1],pos[i][2],pos[i][3]);g.strokeRect(pos[i][0],pos[i][1],pos[i][2],pos[i][3]);emo(all[i].e,pos[i][0]+45,pos[i][1]+28,32)}},
-  tap(x,y){for(let i=0;i<all.length;i++)if(inR(x,y,pos[i]))this.res=all[i].ok?1:-1}}}},
-{id:'present',make(s){return{title:'갑자기 발표!',dur:Math.floor(340/s),slides:0,
-  draw(){emo('📊',180,200,70);txt('슬라이드 '+this.slides+'/4',180,270,18,'#fff');btn([60,320,110,46],'◀','#555');btn([190,320,110,46],'다음 ▶','#2e8')},
-  tap(x,y){if(inR(x,y,[190,320,110,46])){this.slides++;beep(520,.05);if(this.slides>=4)this.res=1}else if(inR(x,y,[60,320,110,46]))this.res=-1}}}},
-{id:'still',make(s){return{title:'움직이지 마!',dur:Math.floor(180/s),timeoutWin:true,
-  draw(){emo('👀',180,230,90);txt('지금 클릭하면 칭찬',180,360,16,'#ff0','#000')},
-  tap(){this.res=-1}}}},
-{id:'fakeend',make(s){return{title:'회의 종료!',dur:Math.floor(240/s),timeoutWin:true,
-  draw(){txt('🎉 END 🎉',180,200,32,'#7f7','#000');txt('나가기 버튼 누르면 보너스',180,260,14,'#fff');btn([80,320,200,46],'나가기','#2e8')},
-  tap(x,y){if(inR(x,y,[80,320,200,46]))this.res=-1}}}}
-];
-
-function nextEv(){
-  const spd=CH[ch].spd;const pool=EV.filter(e=>ch<3?e.id!=='cam'||Math.random()<.3:true);
-  ev=pool[Math.random()*pool.length|0].make(spd);ev.t=0;ev.res=0;evT=0;
-}
-function startRun(){ch=0;ct=0;sleep=10;sus=0;score=0;st='intro';t=0;beep(300,.15)}
-function fail(why){st='dead';t=0;fails++;try{localStorage.meetFails=fails}catch(e){};shake=20;flash=8;msg=why||pick(FAIL);beep(100,.4,'sawtooth')}
-function tap(x,y){
-  if(st==='title'){startRun();return}
-  if(st==='dead'&&t>35&&inR(x,y,[50,360,260,46])){startRun();return}
-  if(st==='ending'&&endT>1200){st='title';t=0;return}
-  if(st==='play'&&ev&&!ev.res&&ev.tap)ev.tap(x,y);
-  if(st==='chclear'&&t>80){if(ch>=4){st='ending';endT=0;clears++;try{localStorage.meetClear=clears}catch(e){}}else{ch++;st='intro';t=0}}
-}
-function xy(e){const r=c.getBoundingClientRect();return [(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
-c.addEventListener('pointerdown',e=>{e.preventDefault();tap(...xy(e))});
-
-function update(){
-  t++;if(shake>0)shake--;if(flash>0)flash--;if(msgT>0)msgT--;
-  const C=CH[ch];
-  if(st==='intro'){if(t>100){st='play';nextEv()}}
-  else if(st==='play'){
-    ct++;sleep=Math.min(100,sleep+.045*C.spd);sus=Math.max(0,sus-.02);
-    if(sleep>92&&!ev.res&&ev.id!=='still'){fail('졸음 · 코골이가 마이크에 잡힘');return}
-    if(ev.upd)ev.upd();ev.t++;
-    if(!ev.res&&ev.t>=ev.dur)ev.res=ev.timeoutWin?1:-1;
-    if(ev.res){evT++;if(evT>40){
-      if(ev.res<0){fail();return}
-      score++;sleep=Math.max(0,sleep-12);sus+=ev.id==='cam'?5:0;beep(880,.08);
-      if(ct>=C.dur*60){st='chclear';t=0;return}
-      nextEv();
-    }}
-    if(ct>=C.dur*60&&st==='play'){st='chclear';t=0}
+function start(){lv=0;loadLv();st='play';runT=0;hp=3;beep(440,.12)}
+function loadLv(){const L=LV[lv];px=L.spawn[0];py=L.spawn[1];vx=vy=0;cam=0;jump=0}
+function rects(){return LV[lv].pl.map(p=>({x:p[0],y:p[1],w:p[2],h:p[3]}))}
+function collide(x,y,w,h,rs){
+  let on=0;
+  for(const r of rs){
+    if(x+w<=r.x||x>=r.x+r.w||y+h<=r.y||y>=r.y+r.h)continue;
+    const dx=(x+w/2)-(r.x+r.w/2),dy=(y+h/2)-(r.y+r.h/2);
+    if(Math.abs(dx/(r.w||1))>Math.abs(dy/(r.h||1))){x+=dx>0?r.x+r.w-x:r.x-(x+w);vx=0}
+    else{y+=dy>0?r.y+r.h-y:r.y-(y+h);vy=0;if(dy>0)on=1}
   }
-  else if(st==='chclear'){}
-  else if(st==='ending')endT++;
+  return{x,y,on};
 }
-function drawZoom(){
-  g.fillStyle='#20262e';g.fillRect(16,56,328,200);g.strokeStyle='#000';g.lineWidth=2;g.strokeRect(16,56,328,200);
-  g.fillStyle='#2d3848';g.fillRect(24,64,150,120);emo('🥔',99,124,52);txt('감자(나)',99,168,11,'#fff');
-  g.fillStyle='#2d3848';g.fillRect(186,64,150,120);emo(ch>=3?'🌿':'🧑‍💼',261,124,48);txt(ch>=3?'CEO 대파':'팀장',261,168,11,'#fff');
-  g.fillStyle='#111';g.fillRect(16,248,328,36);txt('주제: '+CH[ch].n+' · '+CH[ch].sub.slice(0,22),180,266,11,'#9ab');
+function hurt(){hp--;shake=14;beep(120,.25,'sawtooth');if(hp<=0){st='dead';t=0;beep(80,.4)}}
+function update(){
+  t++;if(shake>0)shake--;if(msgT>0)msgT--;
+  if(st==='play'){
+    runT++;
+    if(keys.L)vx=-SP;else if(keys.R)vx=SP;else vx*=.75;
+    if(keys.jp&&onG){vy=JF;jump=1;onG=0;keys.jp=0;beep(520,.06)}
+    vy+=GR;const r=collide(px+vx,py+vy,MW,MH,rects());px=r.x;py=r.y;onG=r.on;
+    if(py>H+40)hurt();
+    const L=LV[lv];cam=Math.max(0,Math.min(L.w-W,px-W*.35));
+    for(const h of L.hz){const hx=h[0],hy=h[1],hw=h[2],hh=h[3];if(px+MW>hx&&px<hx+hw&&py+MH>hy&&py<hy+hh){hurt();px=Math.max(10,px-30)}}
+    for(const p of L.pat){p.x+=p.v;if(p.x<50||p.x>L.w-50)p.v*=-1;if(Math.abs(px+MW/2-p.x)<28&&Math.abs(py+MH/2-p.y)<24)hurt()}
+    if(px>L.door){if(lv>=2){st='win';endT=0;clears++;try{localStorage.meetClear2=clears;if(!bestT||runT<bestT){bestT=runT;localStorage.meetBestT=bestT}}catch(e){};beep(880,.2)}else{lv++;msg='CH '+(lv+1)+'!';msgT=90;loadLv();beep(660,.1)}}
+  }
+  if(st==='win')endT++;
+}
+function drawWorld(){
+  const L=LV[lv];g.save();g.translate(-cam,0);
+  g.fillStyle='#3d4a5c';for(const p of L.pl){g.fillRect(p[0],p[1],p[2],p[3]);g.strokeStyle='#111';g.strokeRect(p[0],p[1],p[2],p[3])}
+  for(const h of L.hz)emo(h[4],h[0]+h[2]/2,h[1]-12,22);
+  for(const p of L.pat)emo(p.e,p.x,p.y,32);
+  g.fillStyle='#2e8b2e';g.fillRect(L.door,360,50,60);emo('🚪',L.door+25,390,36);
+  emo('🥔',px+MW/2,py+MH/2,26);g.restore();
 }
 function draw(){
-  g.save();if(shake>0)g.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);
-  g.fillStyle=flash?'#522':'#1a2332';g.fillRect(-10,-10,W+20,H+20);
+  g.fillStyle='#1a2332';g.fillRect(0,0,W,H);
   if(st==='title'){
-    g.fillStyle='#0d1117';g.fillRect(0,0,W,H);
-    emo('🥔',180,70,72);emo('💻',180,130,40);
-    txt('회의실 감자',180,175,32,'#ffe14d','#000');txt('카메라 켜세요',180,210,22,'#ff6b6b','#000');
-    txt('졸음 · 채팅 · 마이크 · 가짜 종료',180,250,13,'#9cf');
-    txt('5 챕터 · 약 4분 · 클릭/QTE',180,272,13,'#9cf');
-    txt(clears?'생존 '+clears+'회 · 누적 실패 '+fails:'아직 생존 기록 없음',180,300,12,'#778');
-    txt('출근하는 감자 · 꽥꽥 편의점 · 가만히 감자와 같은 우주',180,330,10,'#556');
-    if(t%60<40)txt('▶ 클릭해서 입장 (카메라 ON) ◀',180,420,17,'#7CFC00');
+    emo('🥔',180,90,64);txt('회의 탈출',180,150,32,'#ffe14d','#000');txt('점프맵',180,182,24,'#6cf','#000');
+    txt('← → 이동 · Space / 점프 버튼',180,230,13,'#ccc');txt('3층 탈출 · 함정 ☕ · CEO 🌿',180,252,13,'#ccc');
+    txt('클리어 '+clears+(bestT?' · 최단 '+Math.floor(bestT/60)+'초':''),180,290,12,'#889');
+    if(t%60<40)txt('Space로 시작',180,400,18,'#7CFC00');
+    return;
   }
-  if(st==='intro'||st==='play'||st==='chclear'){
-    drawZoom();
-    g.fillStyle='rgba(0,0,0,.35)';g.fillRect(0,0,W,52);
-    txt('CH '+(ch+1)+'/5 '+CH[ch].n,180,18,14,'#fff','#000');
-    g.fillStyle='rgba(0,0,0,.25)';g.fillRect(20,290,140,10);g.fillStyle='#44f';g.fillRect(20,290,140*sleep/100,10);txt('졸음',90,282,10,'#8af');
-    g.fillStyle='rgba(0,0,0,.25)';g.fillRect(200,290,140,10);g.fillStyle='#f84';g.fillRect(200,290,140*sus/100,10);txt('의심',270,282,10,'#faa');
-    if(st==='play'&&ev){
-      g.fillStyle='rgba(0,0,0,.5)';g.fillRect(0,400,W,80);
-      txt(ev.title,180,418,Math.min(20,ev.title.length>10?16:20),'#fff','#000');
-      g.fillStyle='#e33';g.fillRect(20,438,320,6);g.fillStyle='#3a3';g.fillRect(20,438,320*(1-ev.t/ev.dur),6);
-      ev.draw();
-    }
-    if(st==='intro'){g.fillStyle='rgba(0,0,0,.6)';g.fillRect(0,170,W,120);txt('다음: '+CH[ch].n,180,210,24,'#ffe14d','#000');txt(CH[ch].sub,180,250,13,'#fff')}
-    if(st==='chclear'){g.fillStyle='rgba(0,0,0,.7)';g.fillRect(0,150,W,180);txt('CH '+(ch+1)+' SURVIVE',180,200,28,'#7CFC00','#000');txt('다음 회의가 3초 뒤에 시작됩니다',180,240,14,'#fff');if(t>80&&t%60<40)txt('▶ 계속 ◀',180,290,16,'#7CFC00')}
-  }
-  if(st==='dead'){
-    g.fillStyle='rgba(0,0,0,.85)';g.fillRect(0,0,W,H);
-    txt('퇴출',180,120,40,'#f55','#000');txt(msg,180,170,15,'#fff');txt('CH '+(ch+1)+' · 점수 '+score,180,210,14,'#ff9');
-    btn([50,360,260,46],'▶ 다시 입장','#2e8');
-  }
-  if(st==='ending'){
-    g.fillStyle='#000';g.fillRect(0,0,W,H);
-    const n=Math.min(WIN.length,Math.floor(endT/90));
-    for(let i=0;i<n;i++)txt(WIN[i],180,80+i*38,i===0?20:15,i===4?'#ff9':'#ddd');
-    if(endT>900&&t%60<40)txt('▶ 처음으로 ◀',180,440,14,'#7CFC00');
-  }
-  g.restore();
+  drawWorld();
+  g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,0,W,36);
+  txt('MAP '+(lv+1)+'/3 '+LV[lv].n,180,12,13,'#fff','#000');
+  let h='';for(let i=0;i<3;i++)h+=i<hp?'❤️':'🖤';emo(h,180,28,14);
+  if(msgT>0)txt(msg,W/2,60,16,'#ff9','#000');
+  if(st==='dead'){g.fillStyle='rgba(0,0,0,.75)';g.fillRect(0,0,W,H);txt('회의에 붙잡힘',180,200,28,'#f66','#000');txt('Space 재시도',180,260,16,'#fff')}
+  if(st==='win'){g.fillStyle='rgba(0,0,0,.8)';g.fillRect(0,0,W,H);txt('탈출 성공!',180,180,32,'#7CFC00','#000');txt('다음 회의 5분 뒤 (캘린더 자동)',180,230,14,'#fff');if(endT>120&&t%60<40)txt('Space 처음으로',180,300,14,'#aaa')}
 }
-let last=performance.now(),acc=0;(function loop(now){acc+=Math.min(100,now-last);last=now;while(acc>=1000/60){update();acc-=1000/60}draw();requestAnimationFrame(loop)})(last);
+function loop(){update();draw();requestAnimationFrame(loop)}
+addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA')keys.L=1;
+  if(e.code==='ArrowRight'||e.code==='KeyD')keys.R=1;
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){e.preventDefault();if(st==='title'||st==='dead')start();else if(st==='win'){st='title';t=0}else keys.jp=1}
+});
+addEventListener('keyup',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA')keys.L=0;
+  if(e.code==='ArrowRight'||e.code==='KeyD')keys.R=0;
+});
+document.querySelectorAll('#touch button').forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(st==='title')start();if(k==='J')keys.jp=1;else keys[k]=1});
+  b.addEventListener('pointerup',()=>{if(k!=='J')keys[k]=0});
+  b.addEventListener('pointerleave',()=>{if(k!=='J')keys[k]=0});
+});
+loop();
 </script>
 </body>
 </html>
