@@ -8,7 +8,7 @@
 <meta property="og:title" content="병맛 게임즈">
 <meta property="og:description" content="초저퀄 병맛 게임 6종 · 후회는 무료 아님">
 <meta property="og:type" content="website">
-<meta name="description" content="초저퀄 병맛 HTML5 게임 6종 — 감자·오리·대파 유니버스">
+<meta name="description" content="초저퀄 병맛 HTML5 게임 7종 — 감자·오리·대파 유니버스 (버그 포함)">
 <style>
 :root{--bg:#16162a;--card:#23233f;--ink:#f3f3ff;--sub:#9aa0c8;--y:#ffe14d;--r:#ff6b6b;--n:#6bc5ff}
 *{box-sizing:border-box}
@@ -26,7 +26,9 @@ a.card.new{border-color:#6bc5ff;box-shadow:6px 6px 0 #1a4a6a}
 .genre{display:block;width:max-content;margin:0 auto 10px;padding:3px 10px;border-radius:99px;background:#000;color:var(--y);font-size:11px;font-weight:bold}
 .card p{margin:0 0 12px;color:var(--sub);font-size:13px;line-height:1.45;text-align:center}
 .go{display:block;text-align:center;background:#2e8b2e;border:3px solid #000;border-radius:8px;padding:9px;font-weight:bold;font-size:16px}
-.go.y{background:#b8860b}.go.p{background:#7a3fb5}.go.n{background:#1a6aa8}
+.go.y{background:#b8860b}.go.p{background:#7a3fb5}.go.n{background:#1a6aa8}.go.r{background:#b02a2a}
+footer button{font:inherit;font-size:12px;background:#000;color:var(--y);border:2px solid #444;border-radius:6px;padding:3px 10px;cursor:pointer;margin-left:6px}
+h1{transition:none}
 /* 클리어 배지 (localStorage) */
 .clr{display:block;text-align:center;font-size:12px;color:var(--y);margin:-4px 0 10px}
 footer{text-align:center;color:var(--sub);font-size:12px;margin-top:30px}
@@ -83,15 +85,31 @@ footer{text-align:center;color:var(--sub);font-size:12px;margin-top:30px}
       <span class="clr" id="b3" hidden></span>
       <span class="go p">▶ 가만히 있기</span>
     </a>
+    <a class="card" href="./farm/">
+      <div class="emo">🥔🐛</div>
+      <h2>감자 농장 (버그 있음)</h2>
+      <span class="genre">방치형 · 버그 전시</span>
+      <p>감자를 키워 대파 대왕에게 인수합병당하는 방치형. 숫자가 NaN이 되고, 버튼이 바뀌고, 세금이 날아오고, 블루스크린이 뜬다. 전부 의도된 버그다.</p>
+      <span class="clr" id="b4" hidden></span>
+      <span class="go r">▶ 농사하기</span>
+    </a>
   </div>
-  <footer>모바일/PC · 외부 에셋 없음 · 소리 켜짐 주의 (삑삑)</footer>
+  <footer>모바일/PC · 외부 에셋 없음 · 소리 켜짐 주의 (삑삑)<br><span id="vis">현재 접속자: 1명</span><button id="rep" type="button">🐛 버그 신고</button></footer>
 </main>
 <script>
 function ls(k){try{return localStorage.getItem(k)}catch(e){return null}}
 const B=[['b1',()=>{const v=ls('potatoBest');return v==null?'':'✅ 클리어 · 최소 사망 '+v+'회'}],
 ['b2',()=>{const c=+ls('duckClear')||0,e=+ls('duckEndless')||0;return (c?'✅ 퇴근 '+c+'회  ':'')+(e?'∞ 최고 '+e+'게임':'')}],
 ['b3',()=>{const b=+ls('stillBest')||0;return (b>=5?'✅ 클리어  ':b?'STAGE '+b+' 클리어  ':'')+(ls('stillHell')?'🏆 지옥 클리어':'')}]];
+B.push(['b4',()=>{const c=+ls('farmClear')||0,b=+ls('farmBest')||0;return c?'✅ 인수합병 '+c+'회 · 최단 '+(Math.floor(b/3600))+'분 '+(Math.floor(b/60)%60)+'초':''}]);
 B.forEach(([id,f])=>{const el=document.getElementById(id),v=f();if(v){el.textContent=v;el.hidden=false}});
+
+// 의도된 버그: 제목 깨짐 / 이상한 접속자 / 신고 무시
+const pick=a=>a[Math.random()*a.length|0];
+const h1=document.querySelector('h1'),T0=h1.textContent;
+setInterval(()=>{if(Math.random()<.5){h1.textContent=pick(['병맛 겜임즈','병맛 게임NaN','병매 게임즈','병맛 게임즈 (오류)','undefined']);setTimeout(()=>h1.textContent=T0,350)}},6000);
+const vis=document.getElementById('vis');setInterval(()=>{vis.textContent='현재 접속자: '+pick(['1','-1','NaN','∞','404','0.5'])+'명'},2500);
+let reps=0;const rb=document.getElementById('rep');rb.onclick=()=>{reps++;rb.textContent=reps<3?'🐛 신고 접수됨 (무시됨)':reps<6?'🐛 신고 '+reps+'건 (전부 무시)':'🐛 신고 NaN건 (버그)'};
 </script>
 </body>
 </html>
