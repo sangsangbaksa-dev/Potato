@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>면접탑: 올라가라 감자</title>
+<style>
+html,body{margin:0;height:100%;background:#120a18;overflow:hidden;font-family:"Comic Sans MS","Malgun Gothic",sans-serif;touch-action:none;user-select:none}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;position:relative}
+canvas{background:#1e2838;max-width:100%;max-height:100%;aspect-ratio:3/4}
+#touch{display:none;position:absolute;bottom:8%;left:50%;transform:translateX(-50%);width:min(360px,96vw);grid-template-columns:1fr 1fr 1fr;gap:8px}
+#touch button{font:bold 16px inherit;padding:14px;border:3px solid #000;border-radius:10px;background:#446;color:#fff}
+#touch .j{background:#6a4}
+@media(pointer:coarse){#touch{display:grid}}
+</style>
+</head>
+<body>
+<div id="wrap">
+<canvas id="c" width="360" height="480"></canvas>
+<div id="touch"><button data-k="L">◀</button><button data-k="J" class="j">점프</button><button data-k="R">▶</button></div>
+</div>
+<script>
+const c=document.getElementById('c'),g=c.getContext('2d'),W=360,H=480;
+const TH=2600,GOAL=60;
+const pl=[];for(let i=0;i<48;i++){
+  const y=420-i*52;
+  pl.push({x:40+(i*19%6)*42,y,w:55+((i*5)%5)*22,h:14,mv:i%6===0?'mv':null,cr:i%10===0?'cr':null,fake:i%8===0?1:0,life:i%8===0?50:999});
+  if(i%4===0)pl.push({x:155+(i%3)*30,y,w:58,h:14,mv:null,cr:i%7===0?'cr':null,fake:0,life:999});
+}
+let st='title',px=180,py=406,vx=0,vy=0,onG=1,coyote=0,jBuf=0,cam=0,t=0,shake=0,clears=0,runT=0,endT=0,bullets=[],bt=0,PR=14;
+try{clears=+localStorage.interviewClear2||0}catch(e){}
+let keys={L:0,R:0,J:0,jp:0},ac;
+function beep(f,d=.08,type='square',v=.07){try{ac=ac||new AudioContext();const o=ac.createOscillator(),u=ac.createGain();o.type=type;o.frequency.value=f;u.gain.setValueAtTime(v,ac.currentTime);u.gain.exponentialRampToValueAtTime(.001,ac.currentTime+d);o.connect(u);u.connect(ac.destination);o.start();o.stop(ac.currentTime+d)}catch(e){}}
+function txt(s,x,y,sz,col,out){g.font='bold '+sz+'px "Comic Sans MS",sans-serif';g.textAlign='center';g.textBaseline='middle';if(out){g.strokeStyle=out;g.lineWidth=4;g.strokeText(s,x,y)}g.fillStyle=col;g.fillText(s,x,y)}
+function emo(s,x,y,sz){g.font=sz+'px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(s,x,y)}
+function start(){px=180;py=406;vx=vy=0;onG=1;coyote=10;jBuf=0;cam=0;bullets=[];st='play';runT=0;beep(400,.1)}
+function hurt(){shake=16;py+=50;beep(150,.2);if(py>cam+H+80){st='dead';t=0}}
+function update(){
+  t++;runT++;if(shake>0)shake--;bt++;
+  if(st==='play'){
+    if(keys.L)vx=-2.7;else if(keys.R)vx=2.7;else vx*=.78;
+    if(keys.jp){jBuf=12;keys.jp=0}
+    if(jBuf>0&&(onG||coyote>0)){vy=-8.7;onG=0;coyote=0;jBuf=0;beep(520,.06)}
+    if(jBuf>0)jBuf--;
+    vy+=.42;px+=vx;py+=vy;
+    px=Math.max(16,Math.min(W-16,px));
+    let landed=0;
+    for(const r of pl){if(r.life<=0)continue;
+      let rx=r.x;if(r.mv==='mv')rx+=Math.sin(t/38)*58;
+      const feet=py+PR;
+      if(px+PR>rx&&px-PR<rx+r.w&&feet>=r.y-2&&feet<=r.y+r.h+8&&vy>=0){
+        if(r.fake){r.life--;if(r.life<=0){vy=-7;beep(180,.15)}else{py=r.y-PR;vy=0;landed=1}}
+        else{py=r.y-PR;vy=0;landed=1;if(r.cr==='cr'){vy=-10.5;beep(700,.08)}}
+      }else if(px+PR>rx&&px-PR<rx+r.w&&py-PR<r.y+r.h&&py+PR>r.y&&vy<0){py=r.y+r.h+PR;vy=0}
+    }
+    onG=landed;if(onG)coyote=10;else if(coyote>0)coyote--;
+    if(bt%55===0)bullets.push({x:Math.random()*W,y:cam+H+20,vy:-3.2-rnd(0,1.5),vx:(Math.random()-.5)*1.2,e:Math.random()<.5?'❓':'💼'});
+    for(const b of bullets){b.y+=b.vy;b.x+=b.vx||0;if(Math.hypot(b.x-px,b.y-py)<24){hurt();b.y=-9999}}
+    bullets=bullets.filter(b=>b.y>cam-60&&b.y<cam+H+80);
+    cam=Math.max(0,Math.min(TH-H,480-py));
+    if(py<GOAL){st='win';endT=0;clears++;try{localStorage.interviewClear2=clears}catch(e){};beep(880,.2)}
+    if(py>cam+H+70){st='dead';t=0;beep(80,.35)}
+  }
+  if(st==='win')endT++;
+}
+function rnd(a,b){return a+Math.random()*(b-a)}
+function draw(){
+  g.fillStyle='#1e2838';g.fillRect(0,0,W,H);
+  if(st==='title'){
+    g.fillStyle='#120a18';g.fillRect(0,0,W,H);
+    emo('🏢',180,80,64);emo('🥔',180,145,48);
+    txt('면접탑',180,195,32,'#ffe14d','#000');txt('세로 점프맵',180,228,22,'#c9f','#000');
+    txt('← → · Space · 움직이는 발판 · 낙하물',180,270,13,'#ccc');
+    txt('클리어 '+clears+'회',180,310,12,'#889');
+    if(t%60<40)txt('Space 시작',180,400,18,'#7CFC00');
+    return;
+  }
+  g.save();if(shake>0)g.translate(0,(Math.random()-.5)*shake);g.translate(0,-cam);
+  for(const p of pl){if(p.life<=0)continue;
+    let x=p.x;if(p.mv==='mv')x+=Math.sin(t/38)*58;
+    g.fillStyle=p.fake?'#666':'#2a3548';g.fillRect(x,p.y,p.w,p.h);
+    if(p.cr==='cr'){g.fillStyle='#fa4';g.fillRect(x+4,p.y-4,p.w-8,6)}
+    g.fillStyle=p.fake?'#666':'#2a3548';
+  }
+  g.fillStyle='#ffe14d';g.fillRect(120,GOAL-20,120,24);emo('📜',180,GOAL,28);
+  for(const b of bullets)emo(b.e,b.x,b.y,20);
+  emo('🥔',px,py,28);
+  g.restore();
+  g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,0,W,32);
+  txt('고도 '+Math.max(0,Math.floor((480-py)/8))+'m',180,12,12,'#fff','#000');
+  if(st==='dead'){g.fillStyle='rgba(0,0,0,.8)';g.fillRect(0,0,W,H);txt('낙하 (불합격)',180,220,26,'#f55','#000');txt('Space 재시도',180,280,16,'#fff')}
+  if(st==='win'){g.fillStyle='rgba(0,0,0,.85)';g.fillRect(0,0,W,H);txt('최종 합격!',180,190,30,'#7CFC00','#000');txt('연봉: 감자 1kg',180,240,16,'#ff9');if(endT>100&&t%60<40)txt('Space 처음',180,300,14,'#aaa')}
+}
+function loop(){update();draw();requestAnimationFrame(loop)}
+addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA')keys.L=1;
+  if(e.code==='ArrowRight'||e.code==='KeyD')keys.R=1;
+  if(e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW'){e.preventDefault();if(st==='title'||st==='dead')start();else if(st==='win'){st='title';t=0}else keys.jp=1}
+});
+addEventListener('keyup',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA')keys.L=0;
+  if(e.code==='ArrowRight'||e.code==='KeyD')keys.R=0;
+});
+document.querySelectorAll('#touch button').forEach(b=>{
+  const k=b.dataset.k;
+  b.addEventListener('pointerdown',e=>{e.preventDefault();if(st==='title'||st==='dead')start();if(k==='J')keys.jp=1;else keys[k]=1});
+  b.addEventListener('pointerup',()=>{if(k!=='J')keys[k]=0});
+});
+loop();
+</script>
+</body>
+</html>
